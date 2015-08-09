@@ -54,7 +54,7 @@ class Serial():
         for r in self.rates:
             t = Serial(speed=r, timeout=1, silent=1)
             out = t.send(t.s, 'AT+GMR')
-            if out == "OK":
+            if out[0] == "OK":
                 print("Found correct speed: %s." % str(r))
                 return r
 
@@ -70,20 +70,22 @@ class Serial():
         return self._read(s)
 
     def _read(self, s):
+        buf = []
         out = s.readline()
         sleep(0.2)
 
         while True:
             while s.inWaiting():
                 out = s.readline().strip()
-                print(out)
+                if len(out) > 1:
+                    buf.append(out)
                 sleep(1)
             if "ERROR" in out:
                 break
             if "OK" in out:
                 break
 
-        return out
+        return [out, buf]
 
 
 class Config():
@@ -148,6 +150,7 @@ class Config():
 class Console(cmd.Cmd):
 
     port = None
+    prompt = "(cmd) "
 
     def do_device(self, device):
         'device: set default device.'
@@ -170,6 +173,7 @@ class Console(cmd.Cmd):
         'connect: Connect to the default device. connect /dev/device: connect to selected device.'
         if self.port == None:
             self.port = Serial(c.get("speed"))
+            self.prompt = "(serial) "
         else:
             if self.port.s.isOpen():
                 print("Already connected!")
@@ -182,6 +186,7 @@ class Console(cmd.Cmd):
 
         if self.port.s.isOpen():
             del self.port
+            self.prompt = "(cmd) "
             print("Disconnected!")
 
     def do_send(self, cm):
@@ -195,7 +200,8 @@ class Console(cmd.Cmd):
             return
             
         out = self.port.send(self.port.s, cm)
-        print(out)
+        for l in out[1]:
+            print(l)
 
     def do_quit(self, *args):
         self.do_close()
