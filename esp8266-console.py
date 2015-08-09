@@ -53,7 +53,7 @@ class Serial():
 
         for r in self.rates:
             t = Serial(speed=r, timeout=1, silent=1)
-            out = t.send(t.s, 'AT+GMR')
+            out = t.send('AT+GMR')
             if out[0] == "OK":
                 print("Found correct speed: %s." % str(r))
                 return r
@@ -63,27 +63,33 @@ class Serial():
             sys.exit(1)
             
 
-    def send(self, s, data):
-        s.flushInput()
-        s.write( data + "\r\n" )
+    def send(self, data):
+        self.s.flushInput()
+        self.s.write( data + "\r\n" )
 
-        return self._read(s)
+        return self._read(self.s)
 
     def _read(self, s):
         buf = []
         out = s.readline()
         sleep(0.2)
 
+        timer = time()
+
         while True:
             while s.inWaiting():
                 out = s.readline().strip()
                 if len(out) > 1:
                     buf.append(out)
-                sleep(1)
+                sleep(0.1)
             if "ERROR" in out:
                 break
             if "OK" in out:
                 break
+            if s.timeout and not len(buf):
+                if time() - timer > s.timeout:
+                    break
+            sleep(0.1)
 
         return [out, buf]
 
@@ -199,7 +205,7 @@ class Console(cmd.Cmd):
             print("Not connected!")
             return
             
-        out = self.port.send(self.port.s, cm)
+        out = self.port.send(cm)
         for l in out[1]:
             print(l)
 
@@ -211,13 +217,11 @@ class Console(cmd.Cmd):
         self.do_close()
         return True
 
-    '''
     def cmdloop(self):
         try:
             cmd.Cmd.cmdloop(self)
         except KeyboardInterrupt as e:
             self.cmdloop()
-    '''
 
 
 if __name__ == '__main__':
